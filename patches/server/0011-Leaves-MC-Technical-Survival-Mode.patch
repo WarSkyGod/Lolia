@@ -1,0 +1,136 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Tue, 10 Oct 2023 21:53:47 +0800
+Subject: [PATCH] Leaves-MC-Technical-Survival-Mode(GPL3)
+
+
+diff --git a/src/main/java/io/papermc/paper/chunk/system/scheduling/ChunkHolderManager.java b/src/main/java/io/papermc/paper/chunk/system/scheduling/ChunkHolderManager.java
+index d7705407cc4c869c1c67c002634a081521d8a637..254a43342124321eca3b147c8dcd8c94103946b0 100644
+--- a/src/main/java/io/papermc/paper/chunk/system/scheduling/ChunkHolderManager.java
++++ b/src/main/java/io/papermc/paper/chunk/system/scheduling/ChunkHolderManager.java
+@@ -722,7 +722,7 @@ public final class ChunkHolderManager {
+                 // Delay unload chunk patch originally by Aikar, updated to 1.20 by jpenilla
+                 // these days, the patch is mostly useful to keep chunks ticking when players teleport
+                 // so that their pets can teleport with them as well.
+-                final long delayTimeout = this.world.paperConfig().chunks.delayChunkUnloadsBy.ticks();
++                final long delayTimeout = top.leavesmc.leaves.LeavesConfig.mcTechnicalMode ? 0 : this.world.paperConfig().chunks.delayChunkUnloadsBy.ticks(); // Leaves - mc technical survival mode
+                 final TicketType<ChunkPos> toAdd;
+                 final long timeout;
+                 if (type == RegionizedPlayerChunkLoader.REGION_PLAYER_TICKET && delayTimeout > 0) {
+diff --git a/src/main/java/io/papermc/paper/configuration/PaperConfigurations.java b/src/main/java/io/papermc/paper/configuration/PaperConfigurations.java
+index e471960e0443392f6f54732b052a4debf2a8fd97..08f61d48f3484cb04a94955b0b4b2981bf169358 100644
+--- a/src/main/java/io/papermc/paper/configuration/PaperConfigurations.java
++++ b/src/main/java/io/papermc/paper/configuration/PaperConfigurations.java
+@@ -295,6 +295,7 @@ public class PaperConfigurations extends Configurations<GlobalConfiguration, Wor
+             for (ServerLevel level : server.getAllLevels()) {
+                 this.createWorldConfig(createWorldContextMap(level), reloader(this.worldConfigClass, level.paperConfig()));
+             }
++            top.leavesmc.leaves.LeavesConfig.doMcTechnicalMode(); // Leaves - mc technical survival mode
+         } catch (Exception ex) {
+             throw new RuntimeException("Could not reload paper configuration files", ex);
+         }
+diff --git a/src/main/java/net/minecraft/server/level/ServerLevel.java b/src/main/java/net/minecraft/server/level/ServerLevel.java
+index fe67d2396c3cabf0c1507123fe734eb44c46d617..68239e17a69ecbb5f4b1dbd5a7af348920340a68 100644
+--- a/src/main/java/net/minecraft/server/level/ServerLevel.java
++++ b/src/main/java/net/minecraft/server/level/ServerLevel.java
+@@ -2728,7 +2728,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+         public void onTickingEnd(Entity entity) {
+             ServerLevel.this.getCurrentWorldData().removeEntityTickingEntity(entity); // Folia - region threading
+             // Paper start - Reset pearls when they stop being ticked
+-            if (paperConfig().fixes.disableUnloadedChunkEnderpearlExploit && entity instanceof net.minecraft.world.entity.projectile.ThrownEnderpearl pearl) {
++            if (!top.leavesmc.leaves.LeavesConfig.mcTechnicalMode && paperConfig().fixes.disableUnloadedChunkEnderpearlExploit && entity instanceof net.minecraft.world.entity.projectile.ThrownEnderpearl pearl) { // Leaves - mc technical mode
+                 pearl.cachedOwner = null;
+                 pearl.ownerUUID = null;
+             }
+diff --git a/src/main/java/net/minecraft/world/entity/boss/enderdragon/EndCrystal.java b/src/main/java/net/minecraft/world/entity/boss/enderdragon/EndCrystal.java
+index ffc5b68c4246a7111845230a75552bb15875a209..990cdebf1b9e64a5001c71411e64f68108aef47f 100644
+--- a/src/main/java/net/minecraft/world/entity/boss/enderdragon/EndCrystal.java
++++ b/src/main/java/net/minecraft/world/entity/boss/enderdragon/EndCrystal.java
+@@ -67,7 +67,7 @@ public class EndCrystal extends Entity {
+                 // CraftBukkit end
+             }
+             // Paper start - Fix invulnerable end crystals
+-            if (this.level().paperConfig().unsupportedSettings.fixInvulnerableEndCrystalExploit && this.generatedByDragonFight && this.isInvulnerable()) {
++            if (!top.leavesmc.leaves.LeavesConfig.mcTechnicalMode && this.level().paperConfig().unsupportedSettings.fixInvulnerableEndCrystalExploit && this.generatedByDragonFight && this.isInvulnerable()) { // Leaves - mc technical survival mode
+                 if (!java.util.Objects.equals(((ServerLevel) this.level()).uuid, this.getOriginWorld())
+                     || ((ServerLevel) this.level()).getDragonFight() == null
+                     || ((ServerLevel) this.level()).getDragonFight().respawnStage == null
+diff --git a/src/main/java/net/minecraft/world/entity/item/PrimedTnt.java b/src/main/java/net/minecraft/world/entity/item/PrimedTnt.java
+index acb7545a3346758c7a598b104ea7ae43ce4263d2..4f3d48460fc4167baa2ad0e778c28bb9bd1515f8 100644
+--- a/src/main/java/net/minecraft/world/entity/item/PrimedTnt.java
++++ b/src/main/java/net/minecraft/world/entity/item/PrimedTnt.java
+@@ -63,7 +63,7 @@ public class PrimedTnt extends Entity implements TraceableEntity {
+ 
+     @Override
+     public void tick() {
+-        if (this.level().spigotConfig.maxTntTicksPerTick > 0 && ++this.level().getCurrentWorldData().currentPrimedTnt > this.level().spigotConfig.maxTntTicksPerTick) { return; } // Spigot // Folia - region threading
++        if (this.level().spigotConfig.maxTntTicksPerTick > 0 && ++this.level().getCurrentWorldData().currentPrimedTnt > (top.leavesmc.leaves.LeavesConfig.mcTechnicalMode ? 2000 : this.level().spigotConfig.maxTntTicksPerTick)) { return; } // Spigot // Leaves - mc technical survival mode
+         if (!this.isNoGravity()) {
+             this.setDeltaMovement(this.getDeltaMovement().add(0.0D, -0.04D, 0.0D));
+         }
+diff --git a/src/main/java/net/minecraft/world/entity/npc/Villager.java b/src/main/java/net/minecraft/world/entity/npc/Villager.java
+index bcc1af431fb2da84ba00e87ae9491eb5f580e6de..dc8f133bea9b920f4a0fd40a5ffb4a0a5937805c 100644
+--- a/src/main/java/net/minecraft/world/entity/npc/Villager.java
++++ b/src/main/java/net/minecraft/world/entity/npc/Villager.java
+@@ -1012,7 +1012,7 @@ public class Villager extends AbstractVillager implements ReputationEventHandler
+     public void onReputationEventFrom(ReputationEventType interaction, Entity entity) {
+         if (interaction == ReputationEventType.ZOMBIE_VILLAGER_CURED) {
+             // Paper start - fix MC-181190
+-            if (this.level().paperConfig().fixes.fixCuringZombieVillagerDiscountExploit) {
++            if (!top.leavesmc.leaves.LeavesConfig.mcTechnicalMode && this.level().paperConfig().fixes.fixCuringZombieVillagerDiscountExploit) { // Leaves - mc technical survival mode
+                 final GossipContainer.EntityGossips playerReputation = this.getGossips().gossips.get(entity.getUUID());
+                 if (playerReputation != null) {
+                     playerReputation.remove(GossipType.MAJOR_POSITIVE);
+diff --git a/src/main/java/net/minecraft/world/entity/projectile/Projectile.java b/src/main/java/net/minecraft/world/entity/projectile/Projectile.java
+index 5835a1ba3e2927c6b5d143506b440ac5a43aaaa4..ff81ba51364063a1c3c69a18ad3f4c2b5d339409 100644
+--- a/src/main/java/net/minecraft/world/entity/projectile/Projectile.java
++++ b/src/main/java/net/minecraft/world/entity/projectile/Projectile.java
+@@ -126,7 +126,7 @@ public abstract class Projectile extends Entity implements TraceableEntity {
+         if (nbt.hasUUID("Owner")) {
+             this.ownerUUID = nbt.getUUID("Owner");
+             this.cachedOwner = null;
+-            if (this instanceof ThrownEnderpearl && this.level() != null && this.level().paperConfig().fixes.disableUnloadedChunkEnderpearlExploit) { this.ownerUUID = null; } // Paper - Don't store shooter name for pearls to block enderpearl travel exploit
++            if (this instanceof ThrownEnderpearl && this.level() != null && this.level().paperConfig().fixes.disableUnloadedChunkEnderpearlExploit && !top.leavesmc.leaves.LeavesConfig.mcTechnicalMode) { this.ownerUUID = null; } // Paper - Don't store shooter name for pearls to block enderpearl travel exploit // Leaves - mc technical mode
+         }
+ 
+         this.leftOwner = nbt.getBoolean("LeftOwner");
+diff --git a/src/main/java/net/minecraft/world/level/NaturalSpawner.java b/src/main/java/net/minecraft/world/level/NaturalSpawner.java
+index 6cb2e0acf5c178c935039981ddce662de144395a..711127d614f967a5a0f1ec2d0ba557bd927b8797 100644
+--- a/src/main/java/net/minecraft/world/level/NaturalSpawner.java
++++ b/src/main/java/net/minecraft/world/level/NaturalSpawner.java
+@@ -95,7 +95,7 @@ public final class NaturalSpawner {
+ 
+             if (enumcreaturetype != MobCategory.MISC) {
+                 // Paper start - Only count natural spawns
+-                if (!entity.level().paperConfig().entities.spawning.countAllMobsForSpawning &&
++                if (!top.leavesmc.leaves.LeavesConfig.mcTechnicalMode && !entity.level().paperConfig().entities.spawning.countAllMobsForSpawning && // Leaves - mc technical survival mode
+                     !(entity.spawnReason == org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL ||
+                         entity.spawnReason == org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CHUNK_GEN)) {
+                     continue;
+diff --git a/src/main/java/top/leavesmc/leaves/LeavesConfig.java b/src/main/java/top/leavesmc/leaves/LeavesConfig.java
+index 7963e2233d3ff3a511927109b5a35f511dcca2a6..37bf2d15dc6928f6972643ffb67f21dd26c2bae7 100644
+--- a/src/main/java/top/leavesmc/leaves/LeavesConfig.java
++++ b/src/main/java/top/leavesmc/leaves/LeavesConfig.java
+@@ -2,6 +2,7 @@ package top.leavesmc.leaves;
+ 
+ import com.destroystokyo.paper.util.SneakyThrow;
+ import com.google.common.base.Throwables;
++import io.papermc.paper.configuration.GlobalConfiguration;
+ import net.minecraft.server.MinecraftServer;
+ import org.bukkit.Bukkit;
+ import org.bukkit.command.Command;
+@@ -490,6 +491,14 @@ public final class LeavesConfig {
+ 
+     public static void doMcTechnicalMode() {
+         if (mcTechnicalMode) {
++            GlobalConfiguration.get().unsupportedSettings.allowPistonDuplication = true;
++            GlobalConfiguration.get().unsupportedSettings.allowHeadlessPistons = true;
++            GlobalConfiguration.get().unsupportedSettings.allowPermanentBlockBreakExploits = true;
++            GlobalConfiguration.get().packetLimiter.allPackets = new GlobalConfiguration.PacketLimiter.PacketLimit(GlobalConfiguration.get().packetLimiter.allPackets.interval(),
++                    5000.0, GlobalConfiguration.get().packetLimiter.allPackets.action());
++            GlobalConfiguration.get().packetLimiter.overrides = Map.of();
++            GlobalConfiguration.get().unsupportedSettings.allowGrindstoneOverstacking = true;
++            GlobalConfiguration.get().itemValidation.resolveSelectorsInBooks = true;
+         }
+     }
+ 
