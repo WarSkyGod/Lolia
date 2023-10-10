@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Tue, 10 Oct 2023 21:19:09 +0800
+Subject: [PATCH] Leaves-Hide-irrelevant-compilation-warnings(GPL3)
+
+
+diff --git a/build.gradle.kts b/build.gradle.kts
+index 109531727c5d4d6d301c1461f3cdd8f902158ab1..3a01253d684a969e2435ea4f3b2f84132a03b87b 100644
+--- a/build.gradle.kts
++++ b/build.gradle.kts
+@@ -89,10 +89,17 @@ val generateApiVersioningFile by tasks.registering {
+     }
+ }
+ 
++
++
+ // Pufferfish Start
+ tasks.withType<JavaCompile> {
+     val compilerArgs = options.compilerArgs
+     compilerArgs.add("--add-modules=jdk.incubator.vector")
++    // Leaves start - hide irrelevant compilation warnings
++    compilerArgs.add("-Xlint:-module")
++    compilerArgs.add("-Xlint:-removal")
++    compilerArgs.add("-Xlint:-dep-ann")
++    // Leaves end - hide irrelevant compilation warnings
+ }
+ // Pufferfish End
+ 
+@@ -148,6 +155,7 @@ tasks.withType<Javadoc> {
+             into("build/docs/javadoc")
+         }
+     }
++    options.addStringOption("Xdoclint:none", "-quiet") // Leaves - hide irrelevant compilation warnings
+ }
+ 
+ // Paper start
