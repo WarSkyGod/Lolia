@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Tue, 10 Oct 2023 19:10:57 +0800
+Subject: [PATCH] Kaiiju-Toggle-fix-TripWire-state-inconsistency(GPL3)
+
+
+diff --git a/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+index c6c9a76efdd14b5f3e70b6723e9714673aca96bd..bbce980f73bd24cdfdfeb6e58a4b549b32e9ea7d 100644
+--- a/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
++++ b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+@@ -16,6 +16,7 @@ public class KaiijuWorldConfig {
+     private final String worldName;
+     private final World.Environment environment;
+ 
++    public boolean fixTripWireStateInconsistency = true;
+     public boolean safeTeleporting = true;
+     public boolean sandDuplication = false;
+ 
+@@ -26,6 +27,7 @@ public class KaiijuWorldConfig {
+     }
+ 
+     private void gameplaySettings() {
++        fixTripWireStateInconsistency = getBoolean("gameplay.fix-tripwire-state-inconsistency", fixTripWireStateInconsistency);
+         safeTeleporting = getBoolean("gameplay.safe-teleportation", safeTeleporting);
+         sandDuplication = getBoolean("gameplay.sand-duplication", sandDuplication);
+     }
+diff --git a/src/main/java/net/minecraft/world/level/block/TripWireBlock.java b/src/main/java/net/minecraft/world/level/block/TripWireBlock.java
+index cb2ff8d94308c637a498d2737f86f6af4c9c1b83..84c407dfd19924d12f1c25addbb613e607445fd9 100644
+--- a/src/main/java/net/minecraft/world/level/block/TripWireBlock.java
++++ b/src/main/java/net/minecraft/world/level/block/TripWireBlock.java
+@@ -78,7 +78,7 @@ public class TripWireBlock extends Block {
+     public void onRemove(BlockState state, Level world, BlockPos pos, BlockState newState, boolean moved) {
+         if (io.papermc.paper.configuration.GlobalConfiguration.get().blockUpdates.disableTripwireUpdates) return; // Paper - prevent adjacent tripwires from updating
+         if (!moved && !state.is(newState.getBlock())) {
+-            this.updateSource(world, pos, (BlockState) state.setValue(TripWireBlock.POWERED, true), true); // Paper - fix state inconsistency
++            this.updateSource(world, pos, (BlockState) state.setValue(TripWireBlock.POWERED, true), world.kaiijuConfig.fixTripWireStateInconsistency); // Paper - fix state inconsistency // Kaiiju - Toggle this
+         }
+     }
+ 
