@@ -1,0 +1,641 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Tue, 10 Oct 2023 18:53:52 +0800
+Subject: [PATCH] Kaiiju-Toggle-sand-duplication(GPL3)
+
+
+diff --git a/src/main/java/dev/kaiijumc/kaiiju/KaiijuConfig.java b/src/main/java/dev/kaiijumc/kaiiju/KaiijuConfig.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..7688bef0115121ee33bd4aa86a289e6002a8a608
+--- /dev/null
++++ b/src/main/java/dev/kaiijumc/kaiiju/KaiijuConfig.java
+@@ -0,0 +1,194 @@
++package dev.kaiijumc.kaiiju;
++
++import com.google.common.base.Throwables;
++import com.google.common.collect.ImmutableMap;
++import dev.kaiijumc.kaiiju.command.KaiijuCommand;
++import net.minecraft.server.MinecraftServer;
++import org.bukkit.Bukkit;
++import org.bukkit.command.Command;
++import org.bukkit.configuration.ConfigurationSection;
++import org.bukkit.configuration.InvalidConfigurationException;
++import org.bukkit.configuration.file.YamlConfiguration;
++
++import java.io.File;
++import java.io.IOException;
++import java.lang.reflect.InvocationTargetException;
++import java.lang.reflect.Method;
++import java.lang.reflect.Modifier;
++import java.util.Arrays;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.logging.Level;
++
++@SuppressWarnings("unused")
++public class KaiijuConfig {
++    protected static final String HEADER = "This is the main configuration file for Kaiiju.\n"
++                        + "Some options may impact gameplay, so use with caution.\n"
++                        + "If you need help or have any questions related to Kaiiju,\n"
++                        + "Join our Discord server: https://discord.com/invite/qagZRAepb7\n"
++                        + "Documentation: https://github.com/KaiijuMC/Kaiiju/wiki/Configuration";
++    protected static File CONFIG_FILE;
++    public static YamlConfiguration config;
++
++    protected static Map<String, Command> commands;
++
++    public static int version;
++    static boolean verbose;
++
++    public static void init(File configFile) {
++        init(configFile, true);
++    }
++
++    public static void reload(File configFile) {
++        init(configFile, false);
++    }
++
++    private static void init(File configFile, boolean setup) {
++        CONFIG_FILE = configFile;
++        config = new YamlConfiguration();
++        if (configFile.exists()) {
++            try {
++                config.load(CONFIG_FILE);
++            } catch (InvalidConfigurationException ex){
++                Bukkit.getLogger().log(Level.SEVERE, "Could not load kaiiju.yml, please correct your syntax errors", ex);
++                throw Throwables.propagate(ex);
++            } catch (IOException ignore) {}
++        }
++        config.options().header(HEADER);
++        config.options().copyDefaults(true);
++        verbose = getBoolean("verbose", false);
++
++        commands = new HashMap<>();
++        commands.put("kaiiju", new KaiijuCommand("kaiiju"));
++        
++        version = getInt("config-version", 1);
++        set("config-version", 1);
++
++        readConfig(KaiijuConfig.class, null, setup);
++    }
++
++    protected static void log(String s) {
++        if (verbose) {
++            log(Level.INFO, s);
++        }
++    }
++
++    protected static void log(Level level, String s) {
++        Bukkit.getLogger().log(level, s);
++    }
++
++    public static void registerCommands() {
++        for (Map.Entry<String, Command> entry : commands.entrySet()) {
++            MinecraftServer.getServer().server.getCommandMap().register(entry.getKey(), "Kaiiju", entry.getValue());
++        }
++    }
++
++    static void readConfig(Class<?> clazz, Object instance, boolean setup) {
++        for (Method method : clazz.getDeclaredMethods()) {
++            if (Modifier.isPrivate(method.getModifiers())) {
++                if (method.getParameterTypes().length == 0 && method.getReturnType() == Void.TYPE) {
++                    if (method.getName().endsWith("Setup") && !setup) continue;
++                    try {
++                        method.setAccessible(true);
++                        method.invoke(instance);
++                    } catch (InvocationTargetException ex) {
++                        throw Throwables.propagate(ex.getCause());
++                    } catch (Exception ex) {
++                        Bukkit.getLogger().log(Level.SEVERE, "Error invoking " + method, ex);
++                    }
++                }
++            }
++        }
++
++        try {
++            config.save(CONFIG_FILE);
++        } catch (IOException ex) {
++            Bukkit.getLogger().log(Level.SEVERE, "Could not save " + CONFIG_FILE, ex);
++        }
++    }
++
++    protected static void set(String path, Object val) {
++        config.addDefault(path, val);
++        config.set(path, val);
++    }
++
++    protected static String getString(String path, String def, String... comment) {
++        config.addDefault(path, def);
++        return config.getString(path, config.getString(path));
++    }
++
++    protected static boolean getBoolean(String path, boolean def, String... comment) {
++        config.addDefault(path, def);
++        return config.getBoolean(path, config.getBoolean(path));
++    }
++
++    protected static double getDouble(String path, double def, String... comment) {
++        config.addDefault(path, def);
++        return config.getDouble(path, config.getDouble(path));
++    }
++
++    protected static int getInt(String path, int def, String... comment) {
++        config.addDefault(path, def);
++        return config.getInt(path, config.getInt(path));
++    }
++
++    protected static <T> List getList(String path, T def, String... comment) {
++        config.addDefault(path, def);
++        return config.getList(path, config.getList(path));
++    }
++
++    static Map<String, Object> getMap(String path, Map<String, Object> def, String... comment) {
++        if (def != null && config.getConfigurationSection(path) == null) {
++            config.addDefault(path, def);
++            return def;
++        }
++        return toMap(config.getConfigurationSection(path));
++    }
++
++    protected static String getString(String path, String def) {
++        config.addDefault(path, def);
++        return config.getString(path, config.getString(path));
++    }
++
++    protected static boolean getBoolean(String path, boolean def) {
++        config.addDefault(path, def);
++        return config.getBoolean(path, config.getBoolean(path));
++    }
++
++    protected static double getDouble(String path, double def) {
++        config.addDefault(path, def);
++        return config.getDouble(path, config.getDouble(path));
++    }
++
++    protected static int getInt(String path, int def) {
++        config.addDefault(path, def);
++        return config.getInt(path, config.getInt(path));
++    }
++
++    protected static <T> List getList(String path, T def) {
++        config.addDefault(path, def);
++        return config.getList(path, config.getList(path));
++    }
++
++    static Map<String, Object> getMap(String path, Map<String, Object> def) {
++        if (def != null && config.getConfigurationSection(path) == null) {
++            config.addDefault(path, def);
++            return def;
++        }
++        return toMap(config.getConfigurationSection(path));
++    }
++
++    protected static Map<String, Object> toMap(ConfigurationSection section) {
++        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
++        if (section != null) {
++            for (String key : section.getKeys(false)) {
++                Object obj = section.get(key);
++                if (obj != null) {
++                    builder.put(key, obj instanceof ConfigurationSection val ? toMap(val) : obj);
++                }
++            }
++        }
++        return builder.build();
++    }
++}
+diff --git a/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c6c9a76efdd14b5f3e70b6723e9714673aca96bd
+--- /dev/null
++++ b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+@@ -0,0 +1,134 @@
++package dev.kaiijumc.kaiiju;
++
++import org.apache.commons.lang.BooleanUtils;
++import org.bukkit.World;
++import org.bukkit.configuration.ConfigurationSection;
++
++import java.util.List;
++import java.util.Map;
++import java.util.function.Predicate;
++
++import static dev.kaiijumc.kaiiju.KaiijuConfig.log;
++
++@SuppressWarnings("unused")
++public class KaiijuWorldConfig {
++
++    private final String worldName;
++    private final World.Environment environment;
++
++    public boolean safeTeleporting = true;
++    public boolean sandDuplication = false;
++
++    public KaiijuWorldConfig(String worldName, World.Environment environment) {
++        this.worldName = worldName;
++        this.environment = environment;
++        init();
++    }
++
++    private void gameplaySettings() {
++        safeTeleporting = getBoolean("gameplay.safe-teleportation", safeTeleporting);
++        sandDuplication = getBoolean("gameplay.sand-duplication", sandDuplication);
++    }
++
++    public void init() {
++        init(true);
++    }
++
++    public void reload() {
++        init(false);
++    }
++
++    private void init(boolean setup) {
++        KaiijuConfig.log("-------- World Settings For [" + worldName + "] --------");
++        KaiijuConfig.readConfig(KaiijuWorldConfig.class, this, setup);
++        gameplaySettings();
++    }
++
++    private void set(String path, Object val) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, val);
++        KaiijuConfig.config.set("world-settings.default." + path, val);
++        if (KaiijuConfig.config.get("world-settings." + worldName + "." + path) != null) {
++            KaiijuConfig.config.addDefault("world-settings." + worldName + "." + path, val);
++            KaiijuConfig.config.set("world-settings." + worldName + "." + path, val);
++        }
++    }
++
++    protected ConfigurationSection getConfigurationSection(String path) {
++        ConfigurationSection section = KaiijuConfig.config.getConfigurationSection("world-settings." + worldName + "." + path);
++        return section != null ? section : KaiijuConfig.config.getConfigurationSection("world-settings.default." + path);
++    }
++
++    protected String getString(String path, String def, String... comment) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getString("world-settings." + worldName + "." + path, KaiijuConfig.config.getString("world-settings.default." + path));
++    }
++
++    protected boolean getBoolean(String path, boolean def, String... comment) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getBoolean("world-settings." + worldName + "." + path, KaiijuConfig.config.getBoolean("world-settings.default." + path));
++    }
++
++    protected boolean getBoolean(String path, Predicate<Boolean> predicate, String... comment) {
++        String val = getString(path, "default", comment).toLowerCase();
++        Boolean bool = BooleanUtils.toBooleanObject(val, "true", "false", "default");
++        return predicate.test(bool);
++    }
++
++    protected double getDouble(String path, double def, String... comment) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getDouble("world-settings." + worldName + "." + path, KaiijuConfig.config.getDouble("world-settings.default." + path));
++    }
++
++    protected int getInt(String path, int def, String... comment) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getInt("world-settings." + worldName + "." + path, KaiijuConfig.config.getInt("world-settings.default." + path));
++    }
++
++    protected <T> List<?> getList(String path, T def, String... comment) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getList("world-settings." + worldName + "." + path, KaiijuConfig.config.getList("world-settings.default." + path));
++    }
++
++    protected Map<String, Object> getMap(String path, Map<String, Object> def, String... comment) {
++        final Map<String, Object> fallback = getMap("world-settings.default." + path, def, comment);
++        final Map<String, Object> value = getMap("world-settings." + worldName + "." + path, null, comment);
++        return value.isEmpty() ? fallback : value;
++    }
++
++    protected String getString(String path, String def) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getString("world-settings." + worldName + "." + path, KaiijuConfig.config.getString("world-settings.default." + path));
++    }
++
++    protected boolean getBoolean(String path, boolean def) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getBoolean("world-settings." + worldName + "." + path, KaiijuConfig.config.getBoolean("world-settings.default." + path));
++    }
++
++    private boolean getBoolean(String path, Predicate<Boolean> predicate) {
++        String val = getString(path, "default").toLowerCase();
++        Boolean bool = BooleanUtils.toBooleanObject(val, "true", "false", "default");
++        return predicate.test(bool);
++    }
++
++    protected double getDouble(String path, double def) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getDouble("world-settings." + worldName + "." + path, KaiijuConfig.config.getDouble("world-settings.default." + path));
++    }
++
++    protected int getInt(String path, int def) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getInt("world-settings." + worldName + "." + path, KaiijuConfig.config.getInt("world-settings.default." + path));
++    }
++
++    protected <T> List<?> getList(String path, T def) {
++        KaiijuConfig.config.addDefault("world-settings.default." + path, def);
++        return KaiijuConfig.config.getList("world-settings." + worldName + "." + path, KaiijuConfig.config.getList("world-settings.default." + path));
++    }
++
++    protected Map<String, Object> getMap(String path, Map<String, Object> def) {
++        final Map<String, Object> fallback = getMap("world-settings.default." + path, def);
++        final Map<String, Object> value = getMap("world-settings." + worldName + "." + path, null);
++        return value.isEmpty() ? fallback : value;
++    }
++}
+diff --git a/src/main/java/dev/kaiijumc/kaiiju/command/KaiijuCommand.java b/src/main/java/dev/kaiijumc/kaiiju/command/KaiijuCommand.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d886dd57b9f18cb896719e01567a3fbe5be55548
+--- /dev/null
++++ b/src/main/java/dev/kaiijumc/kaiiju/command/KaiijuCommand.java
+@@ -0,0 +1,66 @@
++package dev.kaiijumc.kaiiju.command;
++
++import dev.kaiijumc.kaiiju.KaiijuConfig;
++import net.minecraft.server.MinecraftServer;
++import net.minecraft.server.level.ServerLevel;
++import net.md_5.bungee.api.ChatColor;
++import org.bukkit.Location;
++import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
++
++import java.awt.*;
++import java.io.File;
++import java.util.Collections;
++import java.util.List;
++import java.util.stream.Collectors;
++import java.util.stream.Stream;
++
++        public class KaiijuCommand extends Command {
++    public KaiijuCommand(String name) {
++                super(name);
++                this.description = "Kaiiju related commands";
++                this.usageMessage = "/kaiiju [ reload / version ]";
++                this.setPermission("bukkit.command.kaiiju");
++            }
++
++            @Override
++    public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
++                if (args.length == 1) {
++                        return Stream.of("reload", "version")
++                                        .filter(arg -> arg.startsWith(args[0].toLowerCase()))
++                                        .collect(Collectors.toList());
++                    }
++                return Collections.emptyList();
++            }
++
++            @Override
++    public boolean execute(CommandSender sender, String commandLabel, String[] args) {
++                if (!testPermission(sender)) return true;
++        
++                        if (args.length != 1) {
++                        sender.sendMessage(ChatColor.RED + "Usage: " + usageMessage);
++                        return false;
++                    }
++        
++                        if (args[0].equalsIgnoreCase("reload")) {
++                        Command.broadcastCommandMessage(sender, ChatColor.RED + "Please note that this command is not supported and may cause issues.");
++                        Command.broadcastCommandMessage(sender, ChatColor.RED + "If you encounter any issues please use the /stop command to restart your server.");
++            
++                                MinecraftServer console = MinecraftServer.getServer();
++                        KaiijuConfig.reload((File) console.options.valueOf("kaiiju-settings"));
++                        for (ServerLevel level : console.getAllLevels()) {
++                                level.kaiijuConfig.reload();
++                        }
++                        console.server.reloadCount++;
++            
++                                Command.broadcastCommandMessage(sender, ChatColor.GREEN + "Kaiiju config reload complete.");
++                    } else if (args[0].equalsIgnoreCase("version")) {
++                        Command verCmd = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
++                        if (verCmd != null) {
++                                return verCmd.execute(sender, commandLabel, new String[0]);
++                            }
++                    }
++        
++                        return true;
++            }
++}
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index effdd0f778d33d6a20d47db9e4a7bd96db7b1a89..63922a2d9e9776ae2f80ea2f8aae6fe68e7152f5 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -215,13 +215,23 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+         thread.start(); // Paper - start console thread after MinecraftServer.console & PaperConfig are initialized
+         io.papermc.paper.command.PaperCommands.registerCommands(this);
+         com.destroystokyo.paper.Metrics.PaperMetrics.startMetrics();
++
++        // Kaiiju start
++        try {
++            dev.kaiijumc.kaiiju.KaiijuConfig.init((java.io.File) options.valueOf("kaiiju-settings"));
++        } catch (Exception e) {
++            DedicatedServer.LOGGER.error("Unable to load server configuration", e);
++            return false;
++        }
++        dev.kaiijumc.kaiiju.KaiijuConfig.registerCommands();
++        // Kaiiju end
++
+         com.destroystokyo.paper.VersionHistoryManager.INSTANCE.getClass(); // load version history now
+         io.papermc.paper.brigadier.PaperBrigadierProviderImpl.INSTANCE.getClass(); // init PaperBrigadierProvider
+         // Paper end
+         MoliaConfig.init(); // Molia
+ 
+ 
+-
+         top.leavesmc.leaves.LeavesConfig.init((java.io.File) options.valueOf("leaves-settings")); // Leaves - Server Config
+         top.leavesmc.leaves.LeavesConfig.registerCommands(); // Leaves - Server Command
+         System.setProperty("spark.serverconfigs.extra", "leaves.yml"); // Leaves - spark config
+diff --git a/src/main/java/net/minecraft/world/entity/Entity.java b/src/main/java/net/minecraft/world/entity/Entity.java
+index b24fb5bf29000cf35506d619a246d94ca8d3f061..29c6dd5e9161fdda3be7801e333522703e7b14ef 100644
+--- a/src/main/java/net/minecraft/world/entity/Entity.java
++++ b/src/main/java/net/minecraft/world/entity/Entity.java
+@@ -24,6 +24,8 @@ import java.util.function.BiConsumer;
+ import java.util.function.Predicate;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++
++import me.earthme.molia.MoliaConfig;
+ import net.minecraft.BlockUtil;
+ import net.minecraft.CrashReport;
+ import net.minecraft.CrashReportCategory;
+@@ -153,6 +155,7 @@ import org.bukkit.event.entity.EntityPortalEvent;
+ import org.bukkit.event.entity.EntityPoseChangeEvent;
+ import org.bukkit.event.player.PlayerTeleportEvent;
+ import org.bukkit.plugin.PluginManager;
++import top.craft_hello.lolia.LoliaConfig;
+ // CraftBukkit end
+ 
+ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+@@ -3946,6 +3949,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+ 
+     protected boolean tryEndPortal() {
+         io.papermc.paper.util.TickThread.ensureTickThread(this, "Cannot portal entity async");
++        if (!this.level.kaiijuConfig.safeTeleporting && !(this instanceof net.minecraft.world.entity.player.Player)) return false; // Kaiiju - Unsafe teleportation
+         BlockPos pos = this.portalBlock;
+         ServerLevel world = this.portalWorld;
+         this.portalBlock = null;
+@@ -4031,12 +4035,19 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+                         targetPos, 16, // load 16 blocks to be safe from block physics
+                         ca.spottedleaf.concurrentutil.executor.standard.PrioritisedExecutor.Priority.HIGH,
+                         (chunks) -> {
+-                            ServerLevel.makeObsidianPlatform(destination, null, targetPos);
++                            // ServerLevel.makeObsidianPlatform(destination, null, targetPos); // Kaiiju - Vanilla end teleportation - moved down
++
++                            // Kaiiju start - Vanilla end teleportation
++                            Vec3 finalPos;
++                            if (this instanceof Player) finalPos = Vec3.atBottomCenterOf(targetPos.below());
++                            else finalPos = Vec3.atBottomCenterOf(targetPos);
++                            // Kaiiju end
++
+ 
+                             // the portal obsidian is placed at targetPos.y - 2, so if we want to place the entity
+                             // on the obsidian, we need to spawn at targetPos.y - 1
+                             portalInfoCompletable.complete(
+-                                new PortalInfo(Vec3.atBottomCenterOf(targetPos.below()), Vec3.ZERO, 90.0f, 0.0f, destination, null)
++                                    new PortalInfo(finalPos, this.getDeltaMovement(), 90.0f, 0.0f, destination, null) // Kaiiju - Vanilla end teleportation
+                             );
+                         }
+                     );
+@@ -4224,6 +4235,11 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+             return false;
+         }
+ 
++        // Kaiiju start - sync end platform spawning & entity teleportation
++        final java.util.function.Consumer<Entity> tpComplete = type == PortalType.END && destination.getTypeKey() == LevelStem.END ?
++                e -> ServerLevel.makeObsidianPlatform(destination, null, ServerLevel.END_SPAWN_POINT) : teleportComplete;
++        // Kaiiju end
++
+         Vec3 initialPosition = this.position();
+         ChunkPos initialPositionChunk = new ChunkPos(
+             io.papermc.paper.util.CoordinateUtils.getChunkX(initialPosition),
+@@ -4281,7 +4297,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+             // place
+             passengerTree.root.placeInAsync(
+                 originWorld, destination, Entity.TELEPORT_FLAG_LOAD_CHUNK | (takePassengers ? Entity.TELEPORT_FLAG_TELEPORT_PASSENGERS : 0L),
+-                passengerTree, teleportComplete
++                    passengerTree, tpComplete // Kaiiju - vanilla end teleportation
+             );
+         });
+ 
+diff --git a/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java b/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
+index 34b3541603b8cca16c7d62f3981d7ce3e8be0dbe..87d08f4d5bdec0ef96c0e4a91a2f595d2b0f0026 100644
+--- a/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
++++ b/src/main/java/net/minecraft/world/entity/item/FallingBlockEntity.java
+@@ -133,7 +133,7 @@ public class FallingBlockEntity extends Entity {
+     @Override
+     public void tick() {
+         // Paper start - fix sand duping
+-        if (this.isRemoved()) {
++        if (!this.level().kaiijuConfig.sandDuplication && this.isRemoved()) { // Kaiiju - Toggle sand duplication
+             return;
+         }
+         // Paper end - fix sand duping
+@@ -150,7 +150,7 @@ public class FallingBlockEntity extends Entity {
+             this.move(MoverType.SELF, this.getDeltaMovement());
+ 
+             // Paper start - fix sand duping
+-            if (this.isRemoved()) {
++            if (!this.level().kaiijuConfig.sandDuplication && this.isRemoved()) { // Kaiiju - Toggle sand duplication
+                 return;
+             }
+             // Paper end - fix sand duping
+diff --git a/src/main/java/net/minecraft/world/level/Level.java b/src/main/java/net/minecraft/world/level/Level.java
+index 91acb921db7d791ef7579c25eae8a07501e8aad3..a690738422ede16e6bd339a99d61e6cb1f64c68b 100644
+--- a/src/main/java/net/minecraft/world/level/Level.java
++++ b/src/main/java/net/minecraft/world/level/Level.java
+@@ -151,6 +151,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable {
+     // Paper end
+ 
+     public final com.destroystokyo.paper.antixray.ChunkPacketBlockController chunkPacketBlockController; // Paper - Anti-Xray
++    public final dev.kaiijumc.kaiiju.KaiijuWorldConfig kaiijuConfig; // Kaiiju
+     public final top.leavesmc.leaves.LeavesConfig.WorldConfig leavesConfig; // Leaves - World Config
+     public static BlockPos lastPhysicsProblem; // Spigot
+     private org.spigotmc.TickLimiter entityLimiter;
+@@ -278,6 +279,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable {
+     protected Level(WritableLevelData worlddatamutable, ResourceKey<Level> resourcekey, RegistryAccess iregistrycustom, Holder<DimensionType> holder, Supplier<ProfilerFiller> supplier, boolean flag, boolean flag1, long i, int j, org.bukkit.generator.ChunkGenerator gen, org.bukkit.generator.BiomeProvider biomeProvider, org.bukkit.World.Environment env, java.util.function.Function<org.spigotmc.SpigotWorldConfig, io.papermc.paper.configuration.WorldConfiguration> paperWorldConfigCreator, java.util.concurrent.Executor executor) { // Paper - Async-Anti-Xray - Pass executor
+         this.spigotConfig = new org.spigotmc.SpigotWorldConfig(((net.minecraft.world.level.storage.PrimaryLevelData) worlddatamutable).getLevelName()); // Spigot
+         this.paperConfig = paperWorldConfigCreator.apply(this.spigotConfig); // Paper
++        this.kaiijuConfig = new dev.kaiijumc.kaiiju.KaiijuWorldConfig(((net.minecraft.world.level.storage.PrimaryLevelData) worlddatamutable).getLevelName(), env); // Kaiiju
+         this.leavesConfig = new top.leavesmc.leaves.LeavesConfig.WorldConfig(((net.minecraft.world.level.storage.PrimaryLevelData)worlddatamutable).getLevelName()); // Leaves - World Config
+         this.generator = gen;
+         this.world = new CraftWorld((ServerLevel) this, gen, biomeProvider, env);
+diff --git a/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java b/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
+index 41d7cff39fc37955877668337689b4b26cd8c7cf..fe21ef0a2c451564694de915f6f4e61dbfeed712 100644
+--- a/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
++++ b/src/main/java/net/minecraft/world/level/block/EndPortalBlock.java
+@@ -53,6 +53,13 @@ public class EndPortalBlock extends BaseEntityBlock {
+                 // return; // CraftBukkit - always fire event in case plugins wish to change it
+             }
+ 
++            // Kaiiju start - Unsafe teleportation
++            if (!entity.level().kaiijuConfig.safeTeleporting && !(entity instanceof net.minecraft.world.entity.player.Player)) {
++                entity.endPortalLogicAsync();
++                return;
++            }
++            // Kaiiju end
++
+             // Paper start - move all of this logic into portal tick
+             entity.portalWorld = ((ServerLevel)world);
+             entity.portalBlock = pos.immutable();
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 8efa35a05c0f61e0f37da9817896dea26cb8b828..005545eb0e42751b8fd04fd5805200aec870d1f9 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1100,6 +1100,7 @@ public final class CraftServer implements Server {
+ 
+         org.spigotmc.SpigotConfig.init((File) console.options.valueOf("spigot-settings")); // Spigot
+         this.console.paperConfigurations.reloadConfigs(this.console);
++        dev.kaiijumc.kaiiju.KaiijuConfig.init((File) console.options.valueOf("kaiiju-settings")); // Kaiiju
+         top.leavesmc.leaves.LeavesConfig.init((File) console.options.valueOf("leaves-settings")); // Leaves - Server Config
+         for (ServerLevel world : this.console.getAllLevels()) {
+             // world.serverLevelData.setDifficulty(config.difficulty); // Paper - per level difficulty
+@@ -1116,6 +1117,7 @@ public final class CraftServer implements Server {
+                 }
+             }
+             world.spigotConfig.init(); // Spigot
++            world.kaiijuConfig.init(); // Kaiiju
+             world.leavesConfig.init(); // Leaves - World Config
+         }
+ 
+@@ -1132,6 +1134,7 @@ public final class CraftServer implements Server {
+         this.reloadData();
+         org.spigotmc.SpigotConfig.registerCommands(); // Spigot
+         io.papermc.paper.command.PaperCommands.registerCommands(this.console); // Paper
++        dev.kaiijumc.kaiiju.KaiijuConfig.registerCommands(); // Kaiiju
+         top.leavesmc.leaves.LeavesConfig.registerCommands(); // Leaves - Server Command
+         this.overrideAllCommandBlockCommands = this.commandsConfiguration.getStringList("command-block-overrides").contains("*");
+         this.ignoreVanillaPermissions = this.commandsConfiguration.getBoolean("ignore-vanilla-permissions");
+@@ -2980,6 +2983,13 @@ public final class CraftServer implements Server {
+             return CraftServer.this.console.paperConfigurations.createLegacyObject(CraftServer.this.console);
+         }
+ 
++        // Kaiiju start
++        @Override
++        public YamlConfiguration getKaiijuConfig() {
++            return dev.kaiijumc.kaiiju.KaiijuConfig.config;
++        }
++        // Kaiiju end
++
+         // Leaves start - add config to timings report
+         @Override
+         public YamlConfiguration getLeavesConfig()
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 46ef346e4a4915b6598fa1cce6ffa1a884795e80..5ecf6cb17bb0522e8c91ce378289d82674b6023e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -180,6 +180,15 @@ public class Main {
+                         .describedAs("Jar file");
+                 // Paper end
+ 
++                // Kaiiju start
++                acceptsAll(asList("kaiiju", "kaiiju-settings"), "File for kaiiju settings")
++                        .withRequiredArg()
++                        .ofType(File.class)
++                        .defaultsTo(new File("kaiiju.yml"))
++                        .describedAs("Yml file");
++                // Kaiiju end
++
++
+                 // Paper start
+                 acceptsAll(asList("server-name"), "Name of the server")
+                         .withRequiredArg()

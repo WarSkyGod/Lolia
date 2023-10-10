@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: violetc <admin@s-yh-china.com>
 Date: Fri, 29 Oct 2021 16:59:07 +0800
-Subject: [PATCH] Leaves Server Config
+Subject: [PATCH] Leaves Server Config(GPL3)
 
 
 diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java

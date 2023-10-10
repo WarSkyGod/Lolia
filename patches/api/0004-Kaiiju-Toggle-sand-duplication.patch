@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Tue, 10 Oct 2023 18:53:52 +0800
+Subject: [PATCH] Kaiiju-Toggle-sand-duplication(GPL3)
+
+
+diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
+index d616772c90696ef602e90b96caa1cc8077a2a15d..3f7b8d26ea6316807f3c9cb491138147af9147b5 100644
+--- a/src/main/java/org/bukkit/Server.java
++++ b/src/main/java/org/bukkit/Server.java
+@@ -2121,7 +2121,14 @@ public interface Server extends PluginMessageRecipient, net.kyori.adventure.audi
+             throw new UnsupportedOperationException("Not supported yet.");
+         }
+         // Paper end
+-		
++
++        // Kaiiju start
++        @NotNull
++        public org.bukkit.configuration.file.YamlConfiguration getKaiijuConfig() {
++            throw new UnsupportedOperationException("Not supported yet.");
++        }
++        // Kaiiju end
++
+ 		// Leaves start - Not supported yet too
+ 		@NotNull
+ 		public org.bukkit.configuration.file.YamlConfiguration getLeavesConfig()
