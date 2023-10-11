@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Wed, 11 Oct 2023 15:19:15 +0800
+Subject: [PATCH] Kaiiju-Toggle-void-trading(GPL3)
+
+
+diff --git a/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+index bbce980f73bd24cdfdfeb6e58a4b549b32e9ea7d..f3c121eed4c68e7e38472402afd5a0e94423cd67 100644
+--- a/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
++++ b/src/main/java/dev/kaiijumc/kaiiju/KaiijuWorldConfig.java
+@@ -16,6 +16,7 @@ public class KaiijuWorldConfig {
+     private final String worldName;
+     private final World.Environment environment;
+ 
++    public boolean fixVoidTrading = true;
+     public boolean fixTripWireStateInconsistency = true;
+     public boolean safeTeleporting = true;
+     public boolean sandDuplication = false;
+@@ -27,6 +28,7 @@ public class KaiijuWorldConfig {
+     }
+ 
+     private void gameplaySettings() {
++        fixVoidTrading = getBoolean("gameplay.fix-void-trading", fixVoidTrading);
+         fixTripWireStateInconsistency = getBoolean("gameplay.fix-tripwire-state-inconsistency", fixTripWireStateInconsistency);
+         safeTeleporting = getBoolean("gameplay.safe-teleportation", safeTeleporting);
+         sandDuplication = getBoolean("gameplay.sand-duplication", sandDuplication);
+diff --git a/src/main/java/net/minecraft/server/level/ServerLevel.java b/src/main/java/net/minecraft/server/level/ServerLevel.java
+index 68239e17a69ecbb5f4b1dbd5a7af348920340a68..bc415d5535b17fcc0e67c0ab2e8ea246eb2aeff8 100644
+--- a/src/main/java/net/minecraft/server/level/ServerLevel.java
++++ b/src/main/java/net/minecraft/server/level/ServerLevel.java
+@@ -2823,7 +2823,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+             // Spigot Start
+             if (entity.getBukkitEntity() instanceof org.bukkit.inventory.InventoryHolder && (!(entity instanceof ServerPlayer) || entity.getRemovalReason() != Entity.RemovalReason.KILLED)) { // SPIGOT-6876: closeInventory clears death message
+                 // Paper start
+-                if (entity.getBukkitEntity() instanceof org.bukkit.inventory.Merchant merchant && merchant.getTrader() != null) {
++                if (entity.level().kaiijuConfig.fixVoidTrading && entity.getBukkitEntity() instanceof org.bukkit.inventory.Merchant merchant && merchant.getTrader() != null) { // Kaiiju
+                     merchant.getTrader().closeInventory(org.bukkit.event.inventory.InventoryCloseEvent.Reason.UNLOADED);
+                 }
+                 // Paper end
