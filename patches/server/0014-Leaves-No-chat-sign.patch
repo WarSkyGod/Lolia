@@ -1,0 +1,223 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: WarSkyGod <wargod@craft-hello.top>
+Date: Wed, 11 Oct 2023 18:37:07 +0800
+Subject: [PATCH] Leaves-No-chat-sign(GPL3)
+
+
+diff --git a/src/main/java/io/papermc/paper/adventure/ChatProcessor.java b/src/main/java/io/papermc/paper/adventure/ChatProcessor.java
+index c44023a2f825507625a244ea8dfaa6073ed36806..42f5e1919ee6ae7cbd6f6059d0ee36b5c105d0ef 100644
+--- a/src/main/java/io/papermc/paper/adventure/ChatProcessor.java
++++ b/src/main/java/io/papermc/paper/adventure/ChatProcessor.java
+@@ -353,7 +353,7 @@ public final class ChatProcessor {
+ 
+         private void sendToServer(final ChatType.Bound chatType, final @Nullable Function<Audience, net.minecraft.network.chat.Component> msgFunction) {
+             final PlayerChatMessage toConsoleMessage = msgFunction == null ? ChatProcessor.this.message : ChatProcessor.this.message.withUnsignedContent(msgFunction.apply(ChatProcessor.this.server.console));
+-            ChatProcessor.this.server.logChatMessage(toConsoleMessage.decoratedContent(), chatType, ChatProcessor.this.server.getPlayerList().verifyChatTrusted(toConsoleMessage) ? null : "Not Secure");
++            ChatProcessor.this.server.logChatMessage(toConsoleMessage.decoratedContent(), chatType, ChatProcessor.this.server.getPlayerList().verifyChatTrusted(toConsoleMessage) || top.leavesmc.leaves.LeavesConfig.noChatSign ? null : "Not Secure"); // Leaves - No Not Secure
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/commands/arguments/ArgumentSignatures.java b/src/main/java/net/minecraft/commands/arguments/ArgumentSignatures.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..47a06936a4727c6209a7ad0fb8fb10995d36513c
+--- /dev/null
++++ b/src/main/java/net/minecraft/commands/arguments/ArgumentSignatures.java
+@@ -0,0 +1,68 @@
++package net.minecraft.commands.arguments;
++
++import java.util.ArrayList;
++import java.util.List;
++import java.util.Objects;
++import javax.annotation.Nullable;
++import net.minecraft.network.FriendlyByteBuf;
++import net.minecraft.network.chat.MessageSignature;
++import net.minecraft.network.chat.SignableCommand;
++
++public record ArgumentSignatures(List<ArgumentSignatures.Entry> entries) {
++    public static final ArgumentSignatures EMPTY = new ArgumentSignatures(List.of());
++    private static final int MAX_ARGUMENT_COUNT = 8;
++    private static final int MAX_ARGUMENT_NAME_LENGTH = 16;
++
++    // Leaves start - no chat sign
++    public ArgumentSignatures(FriendlyByteBuf buf) {
++        this(readSign(buf));
++    }
++
++    private static List<ArgumentSignatures.Entry> readSign(FriendlyByteBuf buf) {
++        var entries = buf.readCollection(FriendlyByteBuf.limitValue(ArrayList::new, 8), Entry::new);
++        return top.leavesmc.leaves.LeavesConfig.noChatSign ? List.of() : entries;
++    }
++    // Leaves end - no chat sign
++
++    @Nullable
++    public MessageSignature get(String argumentName) {
++        for(ArgumentSignatures.Entry entry : this.entries) {
++            if (entry.name.equals(argumentName)) {
++                return entry.signature;
++            }
++        }
++
++        return null;
++    }
++
++    public void write(FriendlyByteBuf buf) {
++        buf.writeCollection(this.entries, (buf2, entry) -> {
++            entry.write(buf2);
++        });
++    }
++
++    public static ArgumentSignatures signCommand(SignableCommand<?> arguments, ArgumentSignatures.Signer signer) {
++        List<ArgumentSignatures.Entry> list = arguments.arguments().stream().map((argument) -> {
++            MessageSignature messageSignature = signer.sign(argument.value());
++            return messageSignature != null ? new ArgumentSignatures.Entry(argument.name(), messageSignature) : null;
++        }).filter(Objects::nonNull).toList();
++        return new ArgumentSignatures(list);
++    }
++
++    public static record Entry(String name, MessageSignature signature) {
++        public Entry(FriendlyByteBuf buf) {
++            this(buf.readUtf(16), MessageSignature.read(buf));
++        }
++
++        public void write(FriendlyByteBuf buf) {
++            buf.writeUtf(this.name, 16);
++            MessageSignature.write(buf, this.signature);
++        }
++    }
++
++    @FunctionalInterface
++    public interface Signer {
++        @Nullable
++        MessageSignature sign(String value);
++    }
++}
+diff --git a/src/main/java/net/minecraft/network/FriendlyByteBuf.java b/src/main/java/net/minecraft/network/FriendlyByteBuf.java
+index 9938bb90bef84cf784f9a1ceb02a1a45aa8b48a1..85e747d68e2730c5868d029de449f85fbe8ec899 100644
+--- a/src/main/java/net/minecraft/network/FriendlyByteBuf.java
++++ b/src/main/java/net/minecraft/network/FriendlyByteBuf.java
+@@ -67,6 +67,7 @@ import net.minecraft.nbt.NbtIo;
+ import net.minecraft.nbt.Tag;
+ import net.minecraft.network.chat.Component;
+ import net.minecraft.network.chat.MutableComponent;
++import net.minecraft.network.protocol.status.ServerStatus;
+ import net.minecraft.resources.ResourceKey;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.util.Crypt;
+@@ -154,6 +155,16 @@ public class FriendlyByteBuf extends ByteBuf {
+     public <T> void writeJsonWithCodec(Codec<T> codec, T value) {
+         DataResult<JsonElement> dataresult = codec.encodeStart(JsonOps.INSTANCE, value);
+ 
++        // Leaves start - no chat sign
++        if (codec == ServerStatus.CODEC) {
++            JsonElement element = Util.getOrThrow(dataresult, string -> new EncoderException("Failed to encode: " + string + " " + value));
++            element.getAsJsonObject().addProperty("preventsChatReports", top.leavesmc.leaves.LeavesConfig.noChatSign);
++
++            this.writeUtf(GSON.toJson(element));
++            return;
++        }
++        // Leaves end - no chat sign
++
+         this.writeUtf(FriendlyByteBuf.GSON.toJson((JsonElement) Util.getOrThrow(dataresult, (s) -> {
+             return new EncoderException("Failed to encode: " + s + " " + value);
+         })));
+diff --git a/src/main/java/net/minecraft/network/protocol/game/ServerboundChatPacket.java b/src/main/java/net/minecraft/network/protocol/game/ServerboundChatPacket.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..24777ff6bb2825b0de3479c4a455e7b9b63b0481
+--- /dev/null
++++ b/src/main/java/net/minecraft/network/protocol/game/ServerboundChatPacket.java
+@@ -0,0 +1,37 @@
++package net.minecraft.network.protocol.game;
++
++import java.time.Instant;
++import javax.annotation.Nullable;
++import net.minecraft.network.FriendlyByteBuf;
++import net.minecraft.network.chat.LastSeenMessages;
++import net.minecraft.network.chat.MessageSignature;
++import net.minecraft.network.protocol.Packet;
++
++public record ServerboundChatPacket(String message, Instant timeStamp, long salt, @Nullable MessageSignature signature, LastSeenMessages.Update lastSeenMessages) implements Packet<ServerGamePacketListener> {
++
++    // Leaves start - no chat sign
++    public ServerboundChatPacket(FriendlyByteBuf buf) {
++        this(buf.readUtf(256), buf.readInstant(), buf.readLong(), buf.readNullable(ServerboundChatPacket::readSign), new LastSeenMessages.Update(buf));
++    }
++
++    private static MessageSignature readSign(FriendlyByteBuf buf) {
++        byte[] bs = new byte[256];
++        buf.readBytes(bs);
++        return top.leavesmc.leaves.LeavesConfig.noChatSign ? null : new MessageSignature(bs);
++    }
++    // Leaves end - no chat sign
++
++    @Override
++    public void write(FriendlyByteBuf buf) {
++        buf.writeUtf(this.message, 256);
++        buf.writeInstant(this.timeStamp);
++        buf.writeLong(this.salt);
++        buf.writeNullable(this.signature, MessageSignature::write);
++        this.lastSeenMessages.write(buf);
++    }
++
++    @Override
++    public void handle(ServerGamePacketListener listener) {
++        listener.handleChat(this);
++    }
++}
+diff --git a/src/main/java/net/minecraft/network/protocol/game/ServerboundChatSessionUpdatePacket.java b/src/main/java/net/minecraft/network/protocol/game/ServerboundChatSessionUpdatePacket.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c349dc502ce275a8215766933f4855f1c7bd726
+--- /dev/null
++++ b/src/main/java/net/minecraft/network/protocol/game/ServerboundChatSessionUpdatePacket.java
+@@ -0,0 +1,26 @@
++package net.minecraft.network.protocol.game;
++
++import net.minecraft.network.FriendlyByteBuf;
++import net.minecraft.network.chat.RemoteChatSession;
++import net.minecraft.network.protocol.Packet;
++
++public record ServerboundChatSessionUpdatePacket(RemoteChatSession.Data chatSession) implements Packet<ServerGamePacketListener> {
++    public ServerboundChatSessionUpdatePacket(FriendlyByteBuf buf) {
++        this(RemoteChatSession.Data.read(buf));
++    }
++
++    @Override
++    public void write(FriendlyByteBuf buf) {
++        RemoteChatSession.Data.write(buf, this.chatSession);
++    }
++
++    @Override
++    public void handle(ServerGamePacketListener listener) {
++        // Leaves start - no chat report
++        if (top.leavesmc.leaves.LeavesConfig.noChatSign) {
++            return;
++        }
++        // Leaves end - no chat report
++        listener.handleChatSessionUpdate(this);
++    }
++}
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 0caa07fd7aa349a7054681f19a911632254a7b2f..5e270522acf660ee5f06c2d4ede965ce47a1af20 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -649,7 +649,7 @@ public class DedicatedServer extends MinecraftServer implements ServerInterface
+     public boolean enforceSecureProfile() {
+         DedicatedServerProperties dedicatedserverproperties = this.getProperties();
+ 
+-        return dedicatedserverproperties.enforceSecureProfile && dedicatedserverproperties.onlineMode && this.services.profileKeySignatureValidator() != null;
++        return dedicatedserverproperties.enforceSecureProfile && dedicatedserverproperties.onlineMode && this.services.profileKeySignatureValidator() != null && !top.leavesmc.leaves.LeavesConfig.noChatSign; // Leaves - No Secure profile;
+     }
+ 
+     protected boolean convertOldUsers() {
+diff --git a/src/main/java/net/minecraft/server/players/PlayerList.java b/src/main/java/net/minecraft/server/players/PlayerList.java
+index dcd9965081f2997cad67b557e83091e55eefc2d8..a459904c009509f5af94a084077c1b8c172b0bde 100644
+--- a/src/main/java/net/minecraft/server/players/PlayerList.java
++++ b/src/main/java/net/minecraft/server/players/PlayerList.java
+@@ -1571,7 +1571,7 @@ public abstract class PlayerList {
+     }
+ 
+     public boolean verifyChatTrusted(PlayerChatMessage message) { // Paper - private -> public
+-        return message.hasSignature() && !message.hasExpiredServer(Instant.now());
++        return top.leavesmc.leaves.LeavesConfig.noChatSign || (message.hasSignature() && !message.hasExpiredServer(Instant.now())); // Leaves - No Not Secure
+     }
+ 
+     // CraftBukkit start
